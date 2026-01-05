@@ -3,349 +3,286 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hand-Controlled 3D Particle System</title>
+    <title>Stark Tech // Holographic Design Interface</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
+        body { margin: 0; overflow: hidden; background-color: #050505; font-family: 'Courier New', Courier, monospace; }
         canvas { display: block; }
         #video-input { display: none; transform: scaleX(-1); }
+        
+        /* JARVIS UI OVERLAY */
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            box-shadow: inset 0 0 100px rgba(0, 255, 255, 0.1);
+        }
+        .hud-text {
+            position: absolute; color: #00ffff; text-shadow: 0 0 5px #00ffff;
+            font-size: 14px; text-transform: uppercase; letter-spacing: 2px;
+        }
+        #top-left { top: 20px; left: 20px; border-left: 2px solid #00ffff; padding-left: 10px; }
+        #bottom-right { bottom: 20px; right: 20px; text-align: right; border-right: 2px solid #00ffff; padding-right: 10px; }
+        #scan-line {
+            position: absolute; top: 50%; left: 0; width: 100%; height: 2px;
+            background: rgba(0, 255, 255, 0.5);
+            box-shadow: 0 0 10px #00ffff;
+            animation: scan 4s infinite linear;
+        }
+        @keyframes scan {
+            0% { top: 10%; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 90%; opacity: 0; }
+        }
         #loading {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            color: white; pointer-events: none; text-align: center;
-        }
-        #ui {
-            position: absolute; top: 20px; left: 20px; color: #00ffcc;
-            background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; pointer-events: none;
+            color: #00ffff; text-align: center;
         }
     </style>
 </head>
 <body>
 
-<div id="loading">Initializing Camera & AI...<br>Please allow camera access.</div>
-<div id="ui">
-    <h3>Interactive Particle System</h3>
-    <p>Current Shape: <span id="shape-name">Sphere</span></p>
-    <p>🖐 Move hand to rotate & color</p>
-    <p>👌 Pinch to expand/explode</p>
+<div id="loading">INITIALIZING SYSTEM...<br>ACCESSIBILITY SERVICES REQUIRED</div>
+
+<div id="ui-layer">
+    <div id="scan-line"></div>
+    <div id="top-left" class="hud-text">
+        PROJECT: ARC REACTOR MK-I<br>
+        STATUS: UNSTABLE<br>
+        <span style="font-size:10px; opacity:0.7">GESTURE CONTROL: ACTIVE</span>
+    </div>
+    <div id="bottom-right" class="hud-text">
+        FRAMEWORK: THREE.JS<br>
+        SYSTEM: ONLINE<br>
+        <span id="gesture-state" style="color: yellow;">WAITING FOR INPUT...</span>
+    </div>
 </div>
 
-<!-- Video element for MediaPipe (Hidden) -->
 <video id="video-input"></video>
 
-<!-- Dependencies -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<!-- MediaPipe Hands -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
 <script>
-    // --- CONFIGURATION ---
-    const PARTICLE_COUNT = 15000;
-    const SHAPE_SWITCH_INTERVAL = 5000; // ms
-
     // --- VARIABLES ---
-    let scene, camera, renderer, points;
-    let particlesData = [];
-    let currentShape = 'sphere';
-    let time = 0;
-    let handInteraction = {
-        active: false,
-        x: 0, y: 0, 
-        pinchDistance: 0
-    };
+    let scene, camera, renderer, composer;
+    let gadgetGroup = new THREE.Group();
+    let parts = []; // Store parts for "Exploded View"
+    
+    // Hand Tracking Data
+    let handData = { x: 0.5, y: 0.5, pinch: 0, active: false };
 
-    // --- THREE.JS SETUP ---
-    function initThree() {
-        const container = document.body;
-        
-        // Scene
+    // --- SETUP SCENE ---
+    function init() {
+        // 1. Scene & Camera
         scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x000000, 0.002);
-
-        // Camera
+        scene.fog = new THREE.FogExp2(0x000000, 0.02);
+        
         camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.z = 30;
+        camera.position.z = 15;
 
-        // Renderer
+        // 2. Renderer
         renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        container.appendChild(renderer.domElement);
+        renderer.toneMapping = THREE.ReinhardToneMapping;
+        document.body.appendChild(renderer.domElement);
 
-        // Particles
-        const geometry = new THREE.BufferGeometry();
-        const positions = new Float32Array(PARTICLE_COUNT * 3);
-        const colors = new Float32Array(PARTICLE_COUNT * 3);
-        const sizes = new Float32Array(PARTICLE_COUNT);
-
-        // Initialize particles with random data
-        for (let i = 0; i < PARTICLE_COUNT; i++) {
-            particlesData.push({
-                velocity: new THREE.Vector3(),
-                target: new THREE.Vector3(),
-                initialPos: new THREE.Vector3()
-            });
-            sizes[i] = Math.random() * 2;
-        }
-
-        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-        geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-
-        // Create a soft glow texture
-        const sprite = new THREE.TextureLoader().load('https://threejs.org/examples/textures/sprites/disc.png');
-
-        const material = new THREE.PointsMaterial({
-            size: 0.5,
-            map: sprite,
-            vertexColors: true,
-            blending: THREE.AdditiveBlending,
-            depthTest: false,
-            transparent: true,
-            opacity: 0.8
-        });
-
-        points = new THREE.Points(geometry, material);
-        scene.add(points);
-
-        // Lights
-        const ambientLight = new THREE.AmbientLight(0x404040);
-        scene.add(ambientLight);
-
-        // Handle Window Resize
-        window.addEventListener('resize', onWindowResize, false);
+        // 3. Post-Processing (THE GLOW)
+        const renderScene = new THREE.RenderPass(scene, camera);
+        const bloomPass = new THREE.UnrealBloomPass(
+            new THREE.Vector2(window.innerWidth, window.innerHeight),
+            2.0, 0.4, 0.1 // Strength, Radius, Threshold
+        );
         
-        // Start Loop
+        composer = new THREE.EffectComposer(renderer);
+        composer.addPass(renderScene);
+        composer.addPass(bloomPass);
+
+        // 4. Create the "Arc Reactor" Gadget
+        createGadget();
+
+        // 5. Lighting
+        const pointLight = new THREE.PointLight(0x00ffff, 1, 100);
+        pointLight.position.set(10, 10, 10);
+        scene.add(pointLight);
+        scene.add(new THREE.AmbientLight(0x404040));
+
+        // 6. Listeners
+        window.addEventListener('resize', onWindowResize);
         animate();
-        
-        // Start Shape Cycle
-        setInterval(cycleShapes, SHAPE_SWITCH_INTERVAL);
-        calculateTargets('sphere'); // Initial shape
         document.getElementById('loading').style.display = 'none';
     }
 
-    // --- MATH & SHAPES ---
-    
-    function getPointOnSphere(i) {
-        const theta = Math.random() * Math.PI * 2;
-        const phi = Math.acos((Math.random() * 2) - 1);
-        const r = 10;
-        return {
-            x: r * Math.sin(phi) * Math.cos(theta),
-            y: r * Math.sin(phi) * Math.sin(theta),
-            z: r * Math.cos(phi)
-        };
-    }
+    // --- PROCEDURAL GADGET GENERATOR ---
+    function createGadget() {
+        // We create a complex object made of multiple rings and cores
+        // This represents a "Blueprint" being designed
+        
+        const materialWire = new THREE.MeshBasicMaterial({ 
+            color: 0x00aaff, 
+            wireframe: true, 
+            transparent: true, 
+            opacity: 0.3 
+        });
+        
+        const materialSolid = new THREE.MeshBasicMaterial({ 
+            color: 0x00ffff, 
+            transparent: true, 
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending 
+        });
 
-    function getPointOnHeart(i) {
-        // Parametric Heart
-        const t = Math.random() * Math.PI * 2;
-        const phi = Math.random() * Math.PI;
-        // 3D Heart variation
-        const x = 16 * Math.pow(Math.sin(t), 3);
-        const y = 13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t);
-        const z = 4 * Math.cos(phi) * Math.sin(t); // Give it thickness
-        const scale = 0.5;
-        return { x: x * scale, y: y * scale, z: z * scale };
-    }
+        // Part 1: Outer Ring (The Casing)
+        const outerGeo = new THREE.TorusGeometry(4, 0.2, 16, 100);
+        const outerRing = new THREE.Mesh(outerGeo, materialSolid);
+        addToGadget(outerRing, 0, 0, 0, 'casing');
 
-    function getPointOnFlower(i) {
-        const u = Math.random() * Math.PI * 2;
-        const v = Math.random() * Math.PI;
-        const r = 5 + 3 * Math.sin(5 * u) * Math.sin(5 * v);
-        return {
-            x: r * Math.sin(v) * Math.cos(u),
-            y: r * Math.sin(v) * Math.sin(u),
-            z: r * Math.cos(v)
-        };
-    }
+        // Part 2: Inner Coils (The Power Source)
+        const coilGeo = new THREE.TorusGeometry(3, 0.5, 16, 50);
+        const coils = new THREE.Mesh(coilGeo, materialWire);
+        addToGadget(coils, 0, 0, 0, 'core');
 
-    function getPointOnSaturn(i) {
-        // Mix of Sphere (Planet) and Ring
-        if (i % 3 === 0) {
-            // Ring
-            const theta = Math.random() * Math.PI * 2;
-            const r = 12 + Math.random() * 5;
-            return { x: r * Math.cos(theta), y: Math.random(), z: r * Math.sin(theta) };
-        } else {
-            // Planet
-            const theta = Math.random() * Math.PI * 2;
-            const phi = Math.acos((Math.random() * 2) - 1);
-            const r = 6;
-            return {
-                x: r * Math.sin(phi) * Math.cos(theta),
-                y: r * Math.sin(phi) * Math.sin(theta),
-                z: r * Math.cos(phi)
-            };
+        // Part 3: The Center Core (Energy Point)
+        const coreGeo = new THREE.IcosahedronGeometry(1.5, 1);
+        const center = new THREE.Mesh(coreGeo, materialSolid);
+        addToGadget(center, 0, 0, 0, 'energy');
+
+        // Part 4: Floating Connectors (Detailing)
+        for(let i=0; i<8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            const pegGeo = new THREE.CylinderGeometry(0.2, 0.2, 2);
+            const peg = new THREE.Mesh(pegGeo, materialWire);
+            
+            peg.position.x = Math.cos(angle) * 3.5;
+            peg.position.y = Math.sin(angle) * 3.5;
+            peg.rotation.z = angle + Math.PI / 2;
+            
+            addToGadget(peg, peg.position.x, peg.position.y, peg.position.z, 'connector');
         }
+
+        scene.add(gadgetGroup);
     }
 
-    function calculateTargets(shapeType) {
-        currentShape = shapeType;
-        document.getElementById('shape-name').innerText = shapeType.toUpperCase();
+    function addToGadget(mesh, x, y, z, type) {
+        // We store the "Home" position so we can return to it after exploding
+        mesh.userData = { 
+            home: new THREE.Vector3(x, y, z),
+            type: type,
+            // Random explosion direction based on position
+            explodeDir: new THREE.Vector3(x, y, z).normalize() 
+        };
+        // If center object, explode Z
+        if(x===0 && y===0) mesh.userData.explodeDir = new THREE.Vector3(0,0,1);
 
-        for (let i = 0; i < PARTICLE_COUNT; i++) {
-            let pos;
-            switch(shapeType) {
-                case 'heart': pos = getPointOnHeart(i); break;
-                case 'flower': pos = getPointOnFlower(i); break;
-                case 'saturn': pos = getPointOnSaturn(i); break;
-                case 'sphere': default: pos = getPointOnSphere(i); break;
-            }
-            particlesData[i].target.set(pos.x, pos.y, pos.z);
-        }
+        gadgetGroup.add(mesh);
+        parts.push(mesh);
     }
 
-    function cycleShapes() {
-        const shapes = ['sphere', 'heart', 'flower', 'saturn'];
-        const nextIndex = (shapes.indexOf(currentShape) + 1) % shapes.length;
-        calculateTargets(shapes[nextIndex]);
-    }
-
-    // --- ANIMATION LOOP ---
+    // --- ANIMATION & LOGIC ---
     function animate() {
         requestAnimationFrame(animate);
 
-        time += 0.005;
-
-        const positions = points.geometry.attributes.position.array;
-        const colors = points.geometry.attributes.color.array;
-
-        // Interaction Factors
-        let explosionFactor = 0;
-        let colorShift = 0;
-        
-        if (handInteraction.active) {
-            // Map pinch distance (0 to 1) to explosion
-            // If pinch is tight (close to 0), system is stable. If open (1), it expands.
-            // Let's invert: Pinching expands/explodes the particles
-            if(handInteraction.pinchDistance < 0.1) {
-                explosionFactor = 5; // Explode on pinch
-            } else {
-                explosionFactor = 0;
-            }
-
-            // Map x position to rotation speed
-            points.rotation.y = (handInteraction.x - 0.5) * 2;
-            points.rotation.x = (handInteraction.y - 0.5) * 2;
+        // 1. Rotation Logic (Hand controls rotation)
+        if (handData.active) {
+            // Smoothly rotate object based on hand position
+            const targetRotX = (handData.y - 0.5) * 3;
+            const targetRotY = (handData.x - 0.5) * 3;
             
-            colorShift = handInteraction.x;
+            gadgetGroup.rotation.x += (targetRotX - gadgetGroup.rotation.x) * 0.1;
+            gadgetGroup.rotation.y += (targetRotY - gadgetGroup.rotation.y) * 0.1;
         } else {
-            points.rotation.y += 0.002;
+            // Idle Spin
+            gadgetGroup.rotation.y += 0.005;
         }
 
-        // Update Particles
-        for (let i = 0; i < PARTICLE_COUNT; i++) {
-            const data = particlesData[i];
-            const px = i * 3;
-            const py = i * 3 + 1;
-            const pz = i * 3 + 2;
-
-            // Current Position
-            const current = new THREE.Vector3(positions[px], positions[py], positions[pz]);
-            
-            // Lerp towards target shape
-            current.lerp(data.target, 0.03);
-
-            // Add Noise / Float
-            const noise = Math.sin(time + i) * 0.05;
-            current.x += noise;
-            current.y += noise;
-
-            // Explosion logic based on Hand
-            if (explosionFactor > 0) {
-                const dir = current.clone().normalize();
-                current.add(dir.multiplyScalar(explosionFactor * Math.random()));
+        // 2. Exploded View Logic (Pinch controls expansion)
+        // If pinch is SMALL (fingers touching), we are grabbing. 
+        // If pinch is LARGE (open hand), we are releasing.
+        // Let's reverse for "Magic": Pinch to Compress, Open to Explode? 
+        // Better: Pinch to Pull Apart (Distance mapping)
+        
+        let explosionFactor = 0;
+        
+        if (handData.active) {
+            // handData.pinch is roughly 0 (touching) to 0.5 (wide open)
+            // Let's make "Wide Open Hand" = Exploded View
+            if (handData.pinch > 0.2) {
+                explosionFactor = (handData.pinch - 0.2) * 20; // Scale up
+                document.getElementById('gesture-state').innerText = "MODE: EXPLODED VIEW";
+            } else {
+                 document.getElementById('gesture-state').innerText = "MODE: ASSEMBLED";
             }
-
-            // Update Arrays
-            positions[px] = current.x;
-            positions[py] = current.y;
-            positions[pz] = current.z;
-
-            // Dynamic Color
-            // Base color on position + time + hand interaction
-            const color = new THREE.Color();
-            const hue = (current.x * 0.05 + time * 0.2 + colorShift) % 1;
-            const saturation = 0.8;
-            const lightness = 0.5 + (explosionFactor * 0.1);
-            color.setHSL(hue, saturation, lightness);
-
-            colors[px] = color.r;
-            colors[py] = color.g;
-            colors[pz] = color.b;
         }
 
-        points.geometry.attributes.position.needsUpdate = true;
-        points.geometry.attributes.color.needsUpdate = true;
-        renderer.render(scene, camera);
+        // Apply Explosion positions
+        parts.forEach(part => {
+            const home = part.userData.home;
+            const dir = part.userData.explodeDir;
+            
+            // Calculate target position
+            const target = home.clone().add(dir.clone().multiplyScalar(explosionFactor));
+            
+            part.position.lerp(target, 0.1);
+            
+            // Also rotate parts slightly when exploded for cool effect
+            part.rotation.z += explosionFactor * 0.001;
+        });
+
+        // 3. Render
+        composer.render();
     }
 
     function onWindowResize() {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
+        composer.setSize(window.innerWidth, window.innerHeight);
     }
 
-    // --- MEDIAPIPE HAND TRACKING ---
+    // --- COMPUTER VISION (MediaPipe) ---
     const videoElement = document.getElementById('video-input');
 
     function onResults(results) {
         if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-            handInteraction.active = true;
-            const landmarks = results.multiHandLandmarks[0];
+            handData.active = true;
+            const lm = results.multiHandLandmarks[0];
 
-            // 1. Get Hand Centroid (approximate by wrist or index)
-            // Landmarks: 0=Wrist, 8=IndexTip, 4=ThumbTip
-            const x = landmarks[9].x; // Middle finger knuckle
-            const y = landmarks[9].y;
+            // Position (Index Finger Knuckle)
+            handData.x = 1 - lm[5].x; // Mirror
+            handData.y = 1 - lm[5].y;
 
-            handInteraction.x = 1 - x; // Mirror effect
-            handInteraction.y = 1 - y;
-
-            // 2. Pinch Detection (Distance between Index Tip and Thumb Tip)
-            const thumbTip = landmarks[4];
-            const indexTip = landmarks[8];
-            const distance = Math.sqrt(
-                Math.pow(thumbTip.x - indexTip.x, 2) + 
-                Math.pow(thumbTip.y - indexTip.y, 2)
-            );
-            
-            handInteraction.pinchDistance = distance;
+            // Pinch/Spread Calculation (Thumb tip to Index tip)
+            const thumb = lm[4];
+            const index = lm[8];
+            const dist = Math.sqrt(Math.pow(thumb.x - index.x, 2) + Math.pow(thumb.y - index.y, 2));
+            handData.pinch = dist;
 
         } else {
-            handInteraction.active = false;
+            handData.active = false;
+            handData.pinch = 0;
+            document.getElementById('gesture-state').innerText = "WAITING FOR INPUT...";
         }
     }
 
-    const hands = new Hands({locateFile: (file) => {
-        return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-    }});
-
-    hands.setOptions({
-        maxNumHands: 1,
-        modelComplexity: 1,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5
-    });
-
+    const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+    hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
     hands.onResults(onResults);
 
     const cameraUtils = new Camera(videoElement, {
-        onFrame: async () => {
-            await hands.send({image: videoElement});
-        },
-        width: 640,
-        height: 480
+        onFrame: async () => { await hands.send({image: videoElement}); },
+        width: 640, height: 480
     });
 
-    // Start everything
-    cameraUtils.start()
-        .then(() => initThree())
-        .catch(e => {
-            console.error(e);
-            document.getElementById('loading').innerText = "Error: Camera access denied or not found.";
-        });
+    // Start
+    cameraUtils.start().then(() => init());
 
 </script>
 </body>
