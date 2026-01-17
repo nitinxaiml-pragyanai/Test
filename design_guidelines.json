@@ -1,0 +1,124 @@
+{
+  "identity": {
+    "name": "ObsidianX",
+    "tone": "Premium, Invisible, Secure, Academic",
+    "archetype": "Swiss & High-Contrast (Apple-like)",
+    "design_philosophy": "The interface should disappear. Content is king. Use 'Apple-like' cleanliness with 'Industrial' precision."
+  },
+  "typography": {
+    "font_family": {
+      "headings": "Manrope, sans-serif",
+      "body": "Inter, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "google_fonts_import": "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap",
+    "rules": {
+      "headings": "tracking-tight font-bold text-primary",
+      "subheadings": "tracking-normal font-medium text-muted-foreground",
+      "body": "leading-relaxed tracking-normal text-foreground",
+      "caps": "uppercase tracking-[0.2em] text-xs font-bold text-muted-foreground"
+    }
+  },
+  "colors": {
+    "palette": {
+      "background": "#FFFFFF",
+      "foreground": "#1D1D1F",
+      "card": "#FFFFFF",
+      "card_foreground": "#1D1D1F",
+      "popover": "#FFFFFF",
+      "popover_foreground": "#1D1D1F",
+      "primary": "#000000",
+      "primary_foreground": "#FFFFFF",
+      "secondary": "#F5F5F7",
+      "secondary_foreground": "#1D1D1F",
+      "muted": "#F5F5F7",
+      "muted_foreground": "#86868B",
+      "accent": "#007AFF",
+      "accent_foreground": "#FFFFFF",
+      "destructive": "#FF3B30",
+      "destructive_foreground": "#FFFFFF",
+      "border": "#E5E5EA",
+      "input": "#E5E5EA",
+      "ring": "#007AFF"
+    },
+    "gradients": {
+      "subtle_glow": "bg-gradient-to-b from-white to-[#F5F5F7]",
+      "glass": "bg-white/80 backdrop-blur-xl border-white/20"
+    }
+  },
+  "layout": {
+    "radius": {
+      "default": "rounded-2xl",
+      "button": "rounded-full",
+      "input": "rounded-xl",
+      "card": "rounded-3xl"
+    },
+    "spacing": {
+      "container_padding": "p-8 md:p-12",
+      "section_gap": "gap-8",
+      "element_gap": "gap-4"
+    },
+    "shadows": {
+      "soft": "shadow-[0_2px_8px_rgba(0,0,0,0.04)]",
+      "floating": "shadow-[0_12px_24px_rgba(0,0,0,0.08)]",
+      "inner": "shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]"
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg hover:shadow-xl transition-all duration-300 rounded-full px-8 py-6 font-medium tracking-wide",
+      "secondary": "bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-full px-6 py-4 font-medium",
+      "ghost": "hover:bg-secondary/50 text-muted-foreground hover:text-foreground rounded-full px-4 py-2"
+    },
+    "inputs": {
+      "default": "bg-secondary/50 border-transparent focus:border-accent/20 focus:bg-white focus:ring-4 focus:ring-accent/10 transition-all duration-300 rounded-xl h-12 px-4 font-medium placeholder:text-muted-foreground/50"
+    },
+    "cards": {
+      "default": "bg-white border border-border/50 shadow-soft rounded-3xl p-8 hover:shadow-floating transition-all duration-500",
+      "glass": "bg-white/70 backdrop-blur-2xl border border-white/50 shadow-soft rounded-3xl p-8"
+    },
+    "badges": {
+      "default": "bg-secondary text-secondary-foreground px-3 py-1 rounded-full text-xs font-bold tracking-wider uppercase"
+    }
+  },
+  "visual_enhancers": {
+    "glassmorphism": "backdrop-blur-xl bg-white/80 border-b border-black/5",
+    "noise": "opacity-[0.015] pointer-events-none fixed inset-0 z-50 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]",
+    "micro_interactions": "active:scale-95 transition-transform duration-100"
+  },
+  "media": {
+    "image_urls": {
+      "landing_hero": "https://images.unsplash.com/photo-1645441971631-510e0a83b538?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "students_social": "https://images.unsplash.com/photo-1759593047650-60328e9356ba?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "students_group": "https://images.unsplash.com/photo-1677594333036-147bda027c6e?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "devices_minimal": "https://images.unsplash.com/photo-1760462787799-eccd2ccdb2dd?crop=entropy&cs=srgb&fm=jpg&q=85"
+    },
+    "icons": "lucide-react"
+  },
+  "motion": {
+    "libraries": ["framer-motion"],
+    "settings": {
+      "transition_spring": { "type": "spring", "stiffness": 300, "damping": 30 },
+      "transition_smooth": { "duration": 0.4, "ease": [0.22, 1, 0.36, 1] }
+    }
+  },
+  "instructions_to_main_agent": [
+    "Use 'Manrope' for all Headings (h1-h6) and 'Inter' for body text.",
+    "Implement a 'Light Mode Only' theme. Do not add dark mode toggles.",
+    "Use the 'Apple-like' aesthetic: generous whitespace, subtle borders, soft shadows, and blur effects.",
+    "For the Chat Interface: Use a split layout. Left sidebar for contacts (glassmorphism), right side for chat (clean white).",
+    "For the Gate/Login: Center the content. Use a clean, minimal card with a large shadow.",
+    "For the Admin Dashboard: Use a 'Bento Grid' layout. High density but clean.",
+    "Use 'sonner' for toasts.",
+    "Ensure all interactive elements have 'data-testid' attributes.",
+    "Do not use 'teal' or 'purple' for main actions. Use Black (Primary) or System Blue (Accent).",
+    "Add the noise texture overlay to the entire app for a premium feel."
+  ],
+  "universal_guidelines": [
+    "Avoid generic centered layouts. Use asymmetry where possible.",
+    "Use 2-3x more spacing than typical designs.",
+    "Never use pure #000000 for backgrounds, but use it for primary text/buttons.",
+    "Every interaction needs a micro-animation.",
+    "Use 'lucide-react' for icons."
+  ]
+}
